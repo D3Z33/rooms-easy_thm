@@ -31,7 +31,7 @@
 
 ```mermaid
 graph TD
-A --> [Enumeração Inicial] B[NFS Enum]
+A[Enumeração Inicial] --> B[NFS Enum]
 B --> C[FTP Loot]
 C --> D[Wordlist + Cookie Brute]
 D --> E[Command Injection]
